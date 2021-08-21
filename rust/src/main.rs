@@ -1017,6 +1017,7 @@ async fn get_isu_conditions(
     Ok(HttpResponse::Ok().json(conditions_response))
 }
 
+
 async fn get_isu_conditions_from_db(
     pool: &sqlx::MySqlPool,
     jia_isu_uuid: &str,
@@ -1026,27 +1027,63 @@ async fn get_isu_conditions_from_db(
     limit: usize,
     isu_name: &str,
 ) -> sqlx::Result<Vec<GetIsuConditionResponse>> {
+    let mut cs = Vec::new();
+    if condition_level.contains(CONDITION_LEVEL_INFO) {
+      cs.push("is_dirty=false,is_overweight=false,is_broken=false");
+    }
+    if condition_level.contains(CONDITION_LEVEL_WARNING) {
+      cs.push("is_dirty=true,is_overweight=false,is_broken=false");
+      cs.push("is_dirty=false,is_overweight=true,is_broken=false");
+      cs.push("is_dirty=false,is_overweight=false,is_broken=true");
+      cs.push("is_dirty=false,is_overweight=true,is_broken=true");
+      cs.push("is_dirty=true,is_overweight=false,is_broken=true");
+      cs.push("is_dirty=true,is_overweight=true,is_broken=false");
+    }
+    if condition_level.contains(CONDITION_LEVEL_CRITICAL) {
+      cs.push("is_dirty=true,is_overweight=true,is_broken=true");
+    }
+    let q = vec!["?"; cs.len()].join(", ");
+
+    let mut query_str = String::from("");
     let conditions: Vec<IsuCondition> = if let Some(ref start_time) = start_time {
-        sqlx::query_as(
-            "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ?	AND ? <= `timestamp` ORDER BY `timestamp` DESC",
-        )
+        query_str = if cs.is_empty() {
+          format!("SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ? AND ? <= `timestamp` ORDER BY `timestamp` DESC LIMIT {}", limit)
+        } else {
+          format!("SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ? AND ? <= `timestamp` AND `condition` IN({}) ORDER BY `timestamp` DESC LIMIT {}", q, limit)
+        };
+
+        let mut query = sqlx::query_as(&query_str)
             .bind(jia_isu_uuid)
             .bind(end_time.naive_local())
-            .bind(start_time.naive_local())
-            .fetch_all(pool)
+            .bind(start_time.naive_local());
+
+        for c in cs {
+          query = query.bind(c.clone());
+        }
+
+        query.fetch_all(pool)
     } else {
-        sqlx::query_as(
-            "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ? ORDER BY `timestamp` DESC",
-        )
-        .bind(jia_isu_uuid)
-        .bind(end_time.naive_local())
-        .fetch_all(pool)
+        query_str = if cs.is_empty() {
+          format!("SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ? ORDER BY `timestamp` DESC LIMIT {}", limit)
+        } else {
+          format!("SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? AND `timestamp` < ? AND `condition` IN({}) ORDER BY `timestamp` DESC LIMIT {}", q, limit)
+        };
+
+        let mut query = sqlx::query_as(&query_str)
+            .bind(jia_isu_uuid)
+            .bind(end_time.naive_local());
+
+        for c in cs {
+            query = query.bind(c.clone());
+        }
+
+        query.fetch_all(pool)
     }.await?;
 
     let mut conditions_response = Vec::new();
     for c in conditions {
         if let Some(c_level) = calculate_condition_level(&c.condition) {
-            if condition_level.contains(c_level) {
+            //if condition_level.contains(c_level) {
                 conditions_response.push(GetIsuConditionResponse {
                     jia_isu_uuid: c.jia_isu_uuid,
                     isu_name: isu_name.to_owned(),
@@ -1056,13 +1093,13 @@ async fn get_isu_conditions_from_db(
                     condition_level: c_level,
                     message: c.message,
                 });
-            }
+            //}
         }
     }
 
-    if conditions_response.len() > limit {
-        conditions_response.truncate(limit);
-    }
+    //if conditions_response.len() > limit {
+    //    conditions_response.truncate(limit);
+    //}
 
     Ok(conditions_response)
 }
