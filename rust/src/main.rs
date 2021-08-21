@@ -6,6 +6,7 @@ use chrono::{DateTime, NaiveDateTime};
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use std::collections::{HashMap, HashSet};
+use actix_session::SessionStatus::Changed;
 
 const SESSION_NAME: &str = "isucondition_rust";
 const CONDITION_LIMIT: usize = 20;
@@ -20,6 +21,35 @@ const CONDITION_LEVEL_CRITICAL: &str = "critical";
 const SCORE_CONDITION_LEVEL_INFO: i64 = 3;
 const SCORE_CONDITION_LEVEL_WARNING: i64 = 2;
 const SCORE_CONDITION_LEVEL_CRITICAL: i64 = 1;
+
+const ISU_CHARACTERS: [&str; 25] = [
+    "いじっぱり",
+    "うっかりや",
+    "おくびょう",
+    "おだやか",
+    "おっとり",
+    "おとなしい",
+    "がんばりや",
+    "きまぐれ",
+    "さみしがり",
+    "しんちょう",
+    "すなお",
+    "ずぶとい",
+    "せっかち",
+    "てれや",
+    "なまいき",
+    "のうてんき",
+    "のんき",
+    "ひかえめ",
+    "まじめ",
+    "むじゃき",
+    "やんちゃ",
+    "ゆうかん",
+    "ようき",
+    "れいせい",
+    "わんぱく"
+];
+
 
 lazy_static::lazy_static! {
     static ref JIA_JWT_SIGNING_KEY_PEM: Vec<u8> = std::fs::read(JIA_JWT_SIGNING_KEY_PATH).expect("failed to read JIA JWT signing key file");
@@ -1118,12 +1148,6 @@ fn calculate_condition_level(condition: &str) -> Option<&'static str> {
 // ISUの性格毎の最新のコンディション情報
 #[actix_web::get("/api/trend")]
 async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpResponse> {
-    let character_list: Vec<String> =
-        sqlx::query_scalar("SELECT `character` FROM `isu` GROUP BY `character`")
-            .fetch_all(pool.as_ref())
-            .await
-            .map_err(SqlxError)?;
-
     let mut res = Vec::new();
 
     let jia_isu_uuids: std::vec::Vec<i64> =
@@ -1133,7 +1157,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
             .map_err(SqlxError)?;
     let jia_isu_uuid_strs: Vec<String> = jia_isu_uuids.iter().map(|i| i.to_string()).collect();
 
-    for character in character_list {
+    for character in ISU_CHARACTERS {
         let query: String = format!(" SELECT `isu`.`id`, `isu`.`jia_isu_uuid`, `isu_condition`.`condition`, `isu_condition`.`timestamp` FROM `isu` JOIN `isu_condition` ON `isu`.`jia_isu_uuid` = `isu_condition`.`jia_isu_uuid` WHERE `isu`.`character` = ?  and `isu_condition`.`id` IN ({})",
             jia_isu_uuid_strs.join(",")
         );
