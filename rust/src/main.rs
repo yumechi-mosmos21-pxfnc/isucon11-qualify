@@ -1079,7 +1079,7 @@ fn calculate_condition_level(condition: &str) -> Option<&'static str> {
 }
 
 // ISUの性格毎の最新のコンディション情報
-#[actix_web::get("/api/trend")]
+#[actix_web::get("/api/trends")]
 async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpResponse> {
     let character_list: Vec<String> =
         sqlx::query_scalar("SELECT `character` FROM `isu` GROUP BY `character`")
@@ -1089,8 +1089,19 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
 
     let mut res = Vec::new();
 
+    let jia_isu_uuids: std::vec::Vec<i64> =
+        sqlx::query_scalar("SELECT MAX(`id`) FROM `isu_condition` GROUP BY `jia_isu_uuid`")
+            .fetch_all(pool.as_ref())
+            .await
+            .map_err(SqlxError)?;
+    let jia_isu_uuid_strs: Vec<String> = jia_isu_uuids.iter().map(|i| i.to_string()).collect();
+
     for character in character_list {
-        let isu_list: Vec<(i64, String)> = sqlx::query_as("SELECT `id`, `jia_isu_uuid` FROM `isu` WHERE `character` = ?")
+        let query: String = format!(" SELECT `isu`.`id`, `isu`.`jia_isu_uuid`, `isu_condition`.`condition` FROM `isu` JOIN `isu_condition` ON `isu`.`jia_isu_uuid` = `isu_condition`.`jia_isu_uuid` WHERE `isu`.`character` = ?  and `isu_condition`.`id` IN ({})",
+            jia_isu_uuid_strs.join(",")
+        );
+
+        let isu_list: Vec<(i64, String, String)> = sqlx::query_as(&query)
             .bind(&character)
             .fetch_all(pool.as_ref())
             .await
@@ -1099,34 +1110,25 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
         let mut character_info_isu_conditions = Vec::new();
         let mut character_warning_isu_conditions = Vec::new();
         let mut character_critical_isu_conditions = Vec::new();
-        for isu in isu_list {
-            let conditions: Vec<IsuCondition> = sqlx::query_as(
-                "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY timestamp DESC",
-            )
-            .bind(&isu.1)
-            .fetch_all(pool.as_ref())
-            .await
-            .map_err(SqlxError)?;
 
-            if !conditions.is_empty() {
-                let isu_last_condition = &conditions[0];
-                let condition_level = calculate_condition_level(&isu_last_condition.condition);
-                if condition_level.is_none() {
-                    log::error!("unexpected warn count");
-                    return Err(actix_web::error::ErrorInternalServerError(""));
-                }
-                let condition_level = condition_level.unwrap();
-                let trend_condition = TrendCondition {
-                    id: isu.0,
-                    timestamp: isu_last_condition.timestamp.timestamp(),
-                };
-                match condition_level {
-                    "info" => character_info_isu_conditions.push(trend_condition),
-                    "warning" => character_warning_isu_conditions.push(trend_condition),
-                    "critical" => character_critical_isu_conditions.push(trend_condition),
-                    _ => {}
-                };
+        for isu in isu_list {
+            let isu_last_condition = isu.2;
+            let condition_level = calculate_condition_level(&isu_last_condition.condition);
+            if condition_level.is_none() {
+                log::error!("unexpected warn count");
+                return Err(actix_web::error::ErrorInternalServerError(""));
             }
+            let condition_level = condition_level.unwrap();
+            let trend_condition = TrendCondition {
+                id: isu.0,
+                timestamp: isu_last_condition.timestamp.timestamp(),
+            };
+            match condition_level {
+                "info" => character_info_isu_conditions.push(trend_condition),
+                "warning" => character_warning_isu_conditions.push(trend_condition),
+                "critical" => character_critical_isu_conditions.push(trend_condition),
+                _ => {}
+            };
         }
 
         character_info_isu_conditions
