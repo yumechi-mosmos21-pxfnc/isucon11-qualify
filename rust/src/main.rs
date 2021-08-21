@@ -1079,7 +1079,7 @@ fn calculate_condition_level(condition: &str) -> Option<&'static str> {
 }
 
 // ISUの性格毎の最新のコンディション情報
-#[actix_web::get("/api/trends")]
+#[actix_web::get("/api/trend")]
 async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpResponse> {
     let character_list: Vec<String> =
         sqlx::query_scalar("SELECT `character` FROM `isu` GROUP BY `character`")
