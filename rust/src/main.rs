@@ -499,8 +499,8 @@ async fn get_isu_list(
 
     let mut tx = pool.begin().await.map_err(SqlxError)?;
 
-    let isu_list: Vec<Isu> =
-        sqlx::query_as("SELECT id, name, jia_isu_uuid, character FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC")
+    let isu_list: Vec<(i64, String, String, String)> =
+        sqlx::query_as("SELECT id, jia_isu_uuid, name, character FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC")
             .bind(&jia_user_id)
             .fetch_all(&mut tx)
             .await
@@ -511,7 +511,7 @@ async fn get_isu_list(
         let last_condition: Option<IsuCondition> = sqlx::query_as(
             "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY `timestamp` DESC LIMIT 1"
         )
-            .bind(&isu.jia_isu_uuid)
+            .bind(&isu.1)
             .fetch_optional(&mut tx)
             .await
             .map_err(SqlxError)?;
@@ -525,7 +525,7 @@ async fn get_isu_list(
             let condition_level = condition_level.unwrap();
             Some(GetIsuConditionResponse {
                 jia_isu_uuid: last_condition.jia_isu_uuid,
-                isu_name: isu.name.clone(),
+                isu_name: isu.2clone(),
                 timestamp: last_condition.timestamp.timestamp(),
                 is_sitting: last_condition.is_sitting,
                 condition: last_condition.condition,
@@ -536,10 +536,10 @@ async fn get_isu_list(
             None
         };
         response_list.push(GetIsuListResponse {
-            id: isu.id,
-            jia_isu_uuid: isu.jia_isu_uuid,
-            name: isu.name,
-            character: isu.character,
+            id: isu.0,
+            jia_isu_uuid: isu.1,
+            name: isu.2,
+            character: isu.3,
             latest_isu_condition: formatted_condition,
         });
     }
@@ -1090,7 +1090,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
     let mut res = Vec::new();
 
     for character in character_list {
-        let isu_list: Vec<Isu> = sqlx::query_as("SELECT id, jia_isu_uuid FROM `isu` WHERE `character` = ?")
+        let isu_list: Vec<(i64, String)> = sqlx::query_as("SELECT id, jia_isu_uuid FROM `isu` WHERE `character` = ?")
             .bind(&character)
             .fetch_all(pool.as_ref())
             .await
@@ -1103,7 +1103,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
             let conditions: Vec<IsuCondition> = sqlx::query_as(
                 "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY timestamp DESC",
             )
-            .bind(&isu.jia_isu_uuid)
+            .bind(&isu.1)
             .fetch_all(pool.as_ref())
             .await
             .map_err(SqlxError)?;
@@ -1117,7 +1117,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
                 }
                 let condition_level = condition_level.unwrap();
                 let trend_condition = TrendCondition {
-                    id: isu.id,
+                    id: isu.0,
                     timestamp: isu_last_condition.timestamp.timestamp(),
                 };
                 match condition_level {
