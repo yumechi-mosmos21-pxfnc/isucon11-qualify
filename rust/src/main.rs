@@ -1175,9 +1175,6 @@ async fn post_isu_condition(
         return Err(actix_web::error::ErrorNotFound("not found: isu"));
     }
 
-    let conds: Vec<&PostIsuConditionRequest> = req.iter().collect();
-    let values = vec!["(?, ?, ?, ?, ?)"; conds.len()].join(", ");
-
     let values = vec!["(?, ?, ?, ?, ?)"; req.len()].join(", ");
     let query_str = "INSERT INTO `isu_condition` (`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES".to_owned() + &values;
     let mut query = sqlx::query(&query_str);
