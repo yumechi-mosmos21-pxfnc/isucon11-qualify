@@ -234,6 +234,11 @@ async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info,sqlx=warn"))
         .init();
     let mysql_connection_env = MySQLConnectionEnv::default();
+    // envに何入っているかとりあえず表示したい
+    let env_keys = ["MYSQL_HOST", "MYSQL_USER", "MYSQL_DBNAME", "MYSQL_PASS"];
+    for key in env_keys.iter() {
+        print!("{}:  {:?}", key, std::env::var(key));
+    }
 
     let pool = sqlx::mysql::MySqlPoolOptions::new()
         .max_connections(10)
