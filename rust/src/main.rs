@@ -500,7 +500,7 @@ async fn get_isu_list(
     let mut tx = pool.begin().await.map_err(SqlxError)?;
 
     let isu_list: Vec<(i64, String, String, String)> =
-        sqlx::query_as("SELECT id, jia_isu_uuid, name, character FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC")
+        sqlx::query_as("SELECT `id`, `jia_isu_uuid`, `name`, `character` FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC")
             .bind(&jia_user_id)
             .fetch_all(&mut tx)
             .await
@@ -1090,7 +1090,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
     let mut res = Vec::new();
 
     for character in character_list {
-        let isu_list: Vec<(i64, String)> = sqlx::query_as("SELECT id, jia_isu_uuid FROM `isu` WHERE `character` = ?")
+        let isu_list: Vec<(i64, String)> = sqlx::query_as("SELECT `id`, `jia_isu_uuid` FROM `isu` WHERE `character` = ?")
             .bind(&character)
             .fetch_all(pool.as_ref())
             .await
