@@ -1202,7 +1202,7 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
         character_critical_isu_conditions
             .sort_by_key(|condition| std::cmp::Reverse(condition.timestamp));
         res.push(TrendResponse {
-            character,
+            character.to_string(),
             info: character_info_isu_conditions,
             warning: character_warning_isu_conditions,
             critical: character_critical_isu_conditions,
