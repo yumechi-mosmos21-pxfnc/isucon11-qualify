@@ -1189,7 +1189,7 @@ async fn post_isu_condition(
         query = query
             .bind(jia_isu_uuid.as_ref())
             .bind(
-                &DateTime::from_utc(
+                DateTime::<chrono::FixedOffset>::from_utc(
                     NaiveDateTime::from_timestamp(cond.timestamp, 0),
                     JST_OFFSET.fix(),
                 )
