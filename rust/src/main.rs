@@ -1097,11 +1097,11 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
     let jia_isu_uuid_strs: Vec<String> = jia_isu_uuids.iter().map(|i| i.to_string()).collect();
 
     for character in character_list {
-        let query: String = format!(" SELECT `isu`.`id`, `isu`.`jia_isu_uuid`, `isu_condition`.`condition` FROM `isu` JOIN `isu_condition` ON `isu`.`jia_isu_uuid` = `isu_condition`.`jia_isu_uuid` WHERE `isu`.`character` = ?  and `isu_condition`.`id` IN ({})",
+        let query: String = format!(" SELECT `isu`.`id`, `isu`.`jia_isu_uuid`, `isu_condition`.`condition`, `isu_condition`.`timestamp` FROM `isu` JOIN `isu_condition` ON `isu`.`jia_isu_uuid` = `isu_condition`.`jia_isu_uuid` WHERE `isu`.`character` = ?  and `isu_condition`.`id` IN ({})",
             jia_isu_uuid_strs.join(",")
         );
 
-        let isu_list: Vec<(i64, String, String)> = sqlx::query_as(&query)
+        let isu_list: Vec<(i64, String, String, NaiveDateTime)> = sqlx::query_as(&query)
             .bind(&character)
             .fetch_all(pool.as_ref())
             .await
@@ -1112,16 +1112,19 @@ async fn get_trend(pool: web::Data<sqlx::MySqlPool>) -> actix_web::Result<HttpRe
         let mut character_critical_isu_conditions = Vec::new();
 
         for isu in isu_list {
-            let isu_last_condition = isu.2;
-            let condition_level = calculate_condition_level(&isu_last_condition.condition);
+            let condition_level = calculate_condition_level(&isu.2);
             if condition_level.is_none() {
                 log::error!("unexpected warn count");
                 return Err(actix_web::error::ErrorInternalServerError(""));
             }
             let condition_level = condition_level.unwrap();
+
+            // DB の datetime 型は JST として解釈する
+            let timestamp = JST_OFFSET.from_local_datetime(&isu.3).unwrap();
+
             let trend_condition = TrendCondition {
                 id: isu.0,
-                timestamp: isu_last_condition.timestamp.timestamp(),
+                timestamp: timestamp.timestamp(),
             };
             match condition_level {
                 "info" => character_info_isu_conditions.push(trend_condition),
