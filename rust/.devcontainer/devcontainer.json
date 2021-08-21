@@ -1,0 +1,13 @@
+{
+  "name": "Rust",
+  "build.dockerFile": "../Dockerfile",
+  "dockerFile": "../Dockerfile",
+  "context": "..",
+  "mounts": [
+    "source=${localWorkspaceFolder}/target,target=/${workspaceRoot}/target,type=bind,consistency=cached"
+  ],
+  "workspaceFolder": "/isucon11-qualify",
+  "extensions": [
+    "rust-lang.rust"
+  ]
+}
