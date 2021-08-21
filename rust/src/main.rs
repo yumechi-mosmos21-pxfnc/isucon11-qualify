@@ -360,7 +360,7 @@ where
     E: 'e + sqlx::Executor<'c, Database = sqlx::MySql>,
 {
     if let Some(jia_user_id) = session.get("jia_user_id")? {
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM `user` WHERE `jia_user_id` = ?")
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(1) FROM `user` WHERE `jia_user_id` = ?")
             .bind(&jia_user_id)
             .fetch_one(executor)
             .await
