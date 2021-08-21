@@ -1175,29 +1175,35 @@ async fn post_isu_condition(
         return Err(actix_web::error::ErrorNotFound("not found: isu"));
     }
 
+    let conds: Vec<&PostIsuConditionRequest> = req.iter().collect();
+    let values = vec!["(?, ?, ?, ?, ?)"; conds.len()].join(", ");
+
+    let values = vec!["(?, ?, ?, ?, ?)"; req.len()].join(", ");
+    let query_str = "INSERT INTO `isu_condition` (`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES".to_owned() + &values;
+    let mut query = sqlx::query(&query_str);
+
     for cond in req.iter() {
-        let timestamp: DateTime<chrono::FixedOffset> = DateTime::from_utc(
-            NaiveDateTime::from_timestamp(cond.timestamp, 0),
-            JST_OFFSET.fix(),
-        );
+        //let timestamp: DateTime<chrono::FixedOffset> =
 
         if !is_valid_condition_format(&cond.condition) {
             return Err(actix_web::error::ErrorBadRequest("bad request body"));
         }
 
-        sqlx::query(
-            "INSERT INTO `isu_condition` (`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`) VALUES (?, ?, ?, ?, ?)",
-        )
+        query = query
             .bind(jia_isu_uuid.as_ref())
-            .bind(&timestamp.naive_local())
+            .bind(
+                &DateTime::from_utc(
+                    NaiveDateTime::from_timestamp(cond.timestamp, 0),
+                    JST_OFFSET.fix(),
+                )
+                .naive_local(),
+            )
             .bind(&cond.is_sitting)
             .bind(&cond.condition)
-            .bind(&cond.message)
-            .execute(&mut tx)
-            .await.map_err(SqlxError)?;
+            .bind(&cond.message);
     }
 
-    tx.commit().await.map_err(SqlxError)?;
+    query.execute(&mut tx).await.map_err(SqlxError)?;
 
     Ok(HttpResponse::Accepted().finish())
 }
