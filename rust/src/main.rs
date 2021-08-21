@@ -1218,13 +1218,6 @@ async fn post_isu_condition(
     jia_isu_uuid: web::Path<String>,
     req: web::Json<Vec<PostIsuConditionRequest>>,
 ) -> actix_web::Result<HttpResponse> {
-    // TODO: 一定割合リクエストを落としてしのぐようにしたが、本来は全量さばけるようにすべき
-    const DROP_PROBABILITY: f64 = 0.9;
-    if rand::random::<f64>() <= DROP_PROBABILITY {
-        log::warn!("drop post isu condition request");
-        return Ok(HttpResponse::Accepted().finish());
-    }
-
     if req.is_empty() {
         return Err(actix_web::error::ErrorBadRequest("bad request body"));
     }
