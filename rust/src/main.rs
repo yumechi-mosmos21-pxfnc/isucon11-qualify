@@ -1201,7 +1201,7 @@ async fn post_isu_condition(
     }
 
     query.execute(&mut tx).await.map_err(SqlxError)?;
-
+    tx.commit().await.map_err(SqlxError)?;
     Ok(HttpResponse::Accepted().finish())
 }
 
