@@ -525,7 +525,7 @@ async fn get_isu_list(
             let condition_level = condition_level.unwrap();
             Some(GetIsuConditionResponse {
                 jia_isu_uuid: last_condition.jia_isu_uuid,
-                isu_name: isu.2clone(),
+                isu_name: isu.2.clone(),
                 timestamp: last_condition.timestamp.timestamp(),
                 is_sitting: last_condition.is_sitting,
                 condition: last_condition.condition,
