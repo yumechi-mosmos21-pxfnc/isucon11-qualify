@@ -1,0 +1,61 @@
+user  www-data;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /run/nginx.pid;
+
+worker_rlimit_nofile  4096;
+events {
+    worker_connections  1024;
+    multi_accept on;  # error が出るリスクあり。defaultはoff。
+}
+
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile    on;
+    tcp_nopush  on;
+    tcp_nodelay on;
+    types_hash_max_size 2048;
+    server_tokens    off;
+    open_file_cache max=100 inactive=20s; # file descriptor のキャッシュ。入れた方が良い。
+
+    # Keepalive 設定
+    keepalive_timeout 65;
+    keepalive_requests 500;
+
+    # 複数serverへ proxy
+    # upstream app {
+    #     server 192.100.0.1:5000 weight=2;  // weight をつけるとproxyする量を変更可能。defaultは1。多いほどたくさんrequestを振り分ける。
+    #     server 192.100.0.2:5000;
+    #     server 192.100.0.3:5000;
+    #     # keepalive 60; app server への connection を keepalive する。app が対応できるならした方が良い。
+    # }
+
+    gzip on;
+    gzip_static on;
+    gzip_disable "msie6";
+
+    gzip_vary on;
+    gzip_min_length 1k;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript application/font-woff application/font-tff application/vnd.ms-fontobject;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*.conf;
+
+    # logを切る
+    access_log  off;
+    error_log   /dev/null crit;
+}
